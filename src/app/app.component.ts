@@ -19,7 +19,7 @@ export class AppComponent implements AfterViewInit {
 
   constructor() {
     this.loader = new Loader({
-      apiKey: "AIzaSyAPiF-FYdsqaGk-B5JgRYwbHB-POuYWXX8",
+      apiKey: "PUT-YOUR-API-KEY-HERE",
       libraries: ["places"],
     });
   }

@@ -1,4 +1,4 @@
-import { Component, AfterViewInit } from '@angular/core';
+import { Component, AfterViewInit, NgZone, ChangeDetectorRef } from '@angular/core';
 import { Loader, } from '@googlemaps/js-api-loader';
 import { readCoords } from './utils/coords-parsers.util';
 
@@ -9,15 +9,17 @@ import { readCoords } from './utils/coords-parsers.util';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements AfterViewInit {
-  title = 'applaudo-maps';
+  message = '';
+
   deliveryArea = readCoords();
   map!: google.maps.Map;
-  marker!: google.maps.Marker;
   polygon!: google.maps.Polygon;
+  storeMarker!: google.maps.Marker;
+  deliveryMarker!: google.maps.Marker;
 
   loader!: Loader;
 
-  constructor() {
+  constructor(private cdr: ChangeDetectorRef) {
     this.loader = new Loader({
       apiKey: "PUT-YOUR-API-KEY-HERE",
       libraries: ["places"],
@@ -25,6 +27,7 @@ export class AppComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+
     this.loader.load().then(() => {
       // google.maps is now available as a namespaces - @types/google.maps
       this.map = new google.maps.Map(document.getElementById("map") as HTMLElement, {
@@ -32,8 +35,8 @@ export class AppComponent implements AfterViewInit {
         zoom: 16,
       });
 
-      this.setCenterMarker()
-
+      this.setStoreMarker()
+      
       this.polygon = new google.maps.Polygon({
         paths: this.deliveryArea.area,
         geodesic: true,
@@ -42,31 +45,48 @@ export class AppComponent implements AfterViewInit {
         strokeWeight: 4,
         fillColor: "#4169E1",
         fillOpacity: 0.35,
-        map: this.map
+        map: this.map,
+        zIndex: 1,
+
       });
-      
+
+
+      // new google.maps.KmlLayer({
+      //   url: 'https://drive.google.com/uc?id=1BdCMdkUI9PpxZZYVp67znUY1vSVH3mhq',
+      //   map: this.map,
+      //   zIndex: 2,
+      //   preserveViewport: false
+      // });
 
       this.addGoogleAutocomplete();
     });
+
+
   }
 
-  setCenterMarker(): void {
-    this.marker = new google.maps.Marker({
+  setStoreMarker(): void {
+    this.storeMarker = new google.maps.Marker({
       position: this.deliveryArea.center,
+      icon: {
+        url: 'https://www.iconpacks.net/icons/2/free-store-icon-2017-thumb.png',
+        scaledSize: new google.maps.Size(50, 50)
+      },
     });
-    
-    this.marker.setPosition(this.deliveryArea.center);
-    this.marker.setMap(this.map);
+
+    this.storeMarker.setPosition(this.deliveryArea.center);
+    this.storeMarker.setMap(this.map);
   }
-  
+
   addGoogleAutocomplete(): void {
-    let autocomplete = new google.maps.places.Autocomplete(document.getElementById('autocomplete') as HTMLInputElement,{
+    let autocomplete = new google.maps.places.Autocomplete(document.getElementById('autocomplete') as HTMLInputElement, {
       componentRestrictions: { country: "pe" }
     });
 
+    this.deliveryMarker = new google.maps.Marker();
+
     autocomplete.addListener("place_changed", () => {
-    
-      this.marker.setMap(null);
+
+      this.deliveryMarker.setMap(null)
 
       const place = autocomplete.getPlace();
 
@@ -75,8 +95,8 @@ export class AppComponent implements AfterViewInit {
         return;
       }
 
-      this.marker.setPosition(place.geometry.location);
-      this.marker.setMap(this.map);
+      this.deliveryMarker.setPosition(place.geometry.location);
+      this.deliveryMarker.setMap(this.map);
 
       const bounds = new google.maps.LatLngBounds();
       bounds.extend(place.geometry.location);
@@ -84,11 +104,13 @@ export class AppComponent implements AfterViewInit {
       this.map.fitBounds(bounds);
       this.map.setZoom(15)
 
-      if(google.maps.geometry.poly.containsLocation(place.geometry.location, this.polygon)){
-        alert("Estas dentro del area de entrega")
+      if (google.maps.geometry.poly.containsLocation(place.geometry.location, this.polygon)) {
+        this.message = "Estas dentro del area de entrega " + place.formatted_address;
       } else {
-        alert("Estas fuera del area de entrega")
+        this.message = "Estas fuera del area de entrega " + place.formatted_address;
       }
+
+      this.cdr.detectChanges();
 
     });
   }
